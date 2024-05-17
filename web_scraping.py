@@ -53,7 +53,7 @@ headers = {
 
 driver.maximize_window()
 
-max_pag = 1
+max_pag = 50
 count = 1
 casas = []
 
@@ -86,7 +86,6 @@ while(count <= max_pag and url != None):
             for class_parent in [parent.get('class', []) for parent in e.parents if parent.name == 'div']: 
                 if('sc-a8d048d5-2' in class_parent):
                     #PRECO, IPTU, CONDOMINIO=========================
-
                     div_preco = e.find('div', attrs={
                         'class':lambda x: x =='olx-ad-card__details-price--vertical' or x == 'olx-ad-card__details-price--horizontal'
                         })
@@ -140,7 +139,7 @@ while(count <= max_pag and url != None):
                             garagem = ''.join([c for c in text if c.isdigit()])
                     
                     a_descricao = div_elementos.find('a')
-                    print(a_descricao.get_text())
+
                     if a_descricao != None:
                         descricao = a_descricao.get_text()
 
