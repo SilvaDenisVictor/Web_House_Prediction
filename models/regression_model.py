@@ -55,7 +55,7 @@ def create_model():
     parm = [par1, par2]
 
     scorer = make_scorer(mean_squared_error, greater_is_better=False)#make_scorer(mean_absolute_error, greater_is_better=False),
-    model = GridSearchCV(pipe, parm, scoring=scorer, cv=10, n_jobs=2)
+    model = GridSearchCV(pipe, parm, scoring=scorer, cv=10, n_jobs=1)
     
     return model
 

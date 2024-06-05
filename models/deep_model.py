@@ -6,7 +6,7 @@ from keras.layers import Dense, Conv1D, MaxPooling1D, Flatten, Dropout, Normaliz
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential, load_model
 
-tf.config.threading.set_intra_op_parallelism_threads(2)
+tf.config.threading.set_intra_op_parallelism_threads(1)
 
 def transform(X, degree):
     new_x = pd.DataFrame(X.values)
@@ -27,10 +27,10 @@ def create_model(X, degree):
 
     model = Sequential([
         normalizer,
+        Dense(128, activation='relu'),
         Dense(512, activation='relu'),
         Dense(256, activation='relu'),
-        Dense(128, activation='relu'),
-        Dense(64, activation='relu'),
+         Dense(64, activation='relu'),
         Dense(1)  # Camada de saída para regressão
     ])
 
