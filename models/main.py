@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import psycopg2
 
 import deep_model as dm
 import regression_model as rm
@@ -7,16 +8,28 @@ from pre_processing.pre_processing import processing_data
 
 from sklearn.model_selection import train_test_split
 
+#EXTRAINDO DADOS DO BANCO
+coon =  psycopg2.connect(host='postgres', dbname='houses_db', user='postgres', password='postgres', port=5432)
+cur = coon.cursor()
+
+insert = """
+select * from House;
+"""
+
+cur.execute(insert)
+
+casas = cur.fetchall()
+
+print('Tipo: ', type(casas))
+print('Quantidade de linhas: ', len(casas))
+print('Quantidade de colunas: ', len(casas[0]))
+
 #DATA PROCESSING
-df = pd.read_csv('data_extraction/casas.csv', sep=';')
+df = pd.DataFrame(casas, columns=['id', 'preco', 'iptu', 'condominio', 'metro_quadrado', 'quarto', 'banheiro', 'garagem', 'regiao', 'data', 'vendedor', 'descricao'])
 
-X, y = processing_data(df)
-X['regiao'] = X['regiao'].astype('category').cat.codes
+X, y, dic = processing_data(df)
 
-#CREATING DICT OF REGIAO
-
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state = 9)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state = 15)
 
 #CREATING MODELS
 degree = 1

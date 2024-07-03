@@ -3,6 +3,7 @@ import numpy as np
 
 import tensorflow as tf
 from keras.layers import Dense, Conv1D, MaxPooling1D, Flatten, Dropout, Normalization, Input
+from keras.optimizers import Adam, SGD
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential, load_model
 
@@ -31,22 +32,24 @@ def create_model(X, degree):
     input_regiao = Input(shape=(1,))
     input_numerico = Input(shape=(8,))
 
+
     #TRATANDO REGIAO
-    regiao = Embedding(input_dim=df['regiao'].astype('category').cat.codes.nunique(), output_dim=30, name='embedding_regiao')(input_regiao)
+
+    regiao = Embedding(input_dim=X['regiao'].unique().shape[0] + 1, output_dim=30, name='embedding_regiao')(input_regiao)
     regiao =  Flatten()(regiao)
     regiao = Model(inputs=input_regiao, outputs=regiao)
 
     #TRATANDO DADOS NUMERICOS
-    numerico = Dense(64, activation='relu')(input_numerico)
-    numerico = Dense(128, activation='relu')(numerico)
+    numerico = Dense(16, activation='relu')(input_numerico)
+    numerico = Dense(32, activation='relu')(numerico)
     numerico = Model(inputs=input_numerico, outputs=numerico)
 
     #JUNTANDO AS DUAS ENTRADAS
     combined = Concatenate()([numerico.output, regiao.output])
 
     #FINAL
-    final = Dense(128, activation='relu')(combined)
-    final = Dense(32, activation='relu')(final)
+    final = Dense(32, activation='relu')(combined)
+    final = Dense(16, activation='relu')(final)
     final = Dense(1, activation='relu')(final)
 
     #FINAL MODEL
@@ -63,9 +66,9 @@ def create_model(X, degree):
     #     Dense(64, activation='relu'),
     #     Dense(1)  # Camada de saída para regressão
     # ])
-
-    model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_absolute_error'])
-
+    #Adam(learning_rate=0.009, beta_1=0.8, beta_2=0.991, epsilon=1e-07)
+    model.compile(optimizer=Adam(), loss='mean_squared_error', metrics=['mean_absolute_error'])
+    
     return model
 
 def get_train_model(deep_model, X_train, y_train, degree):
@@ -84,7 +87,7 @@ def get_train_model(deep_model, X_train, y_train, degree):
     print(X_train_prep[1].info(), '\n\n\n')
     
     #validation_data=(X_test_prep, y_test)
-    deep_model.fit(X_train_prep, y_train, validation_split=0.058, epochs=100, batch_size=1, callbacks=[checkpoint_callback])
+    deep_model.fit(X_train_prep, y_train, validation_split=0.08, epochs=100, batch_size=1, callbacks=[checkpoint_callback])
 
 def evaluate(deep_model, X_test, y_test, degree):
     X_test_prep = [X_test.loc[:, X_test.columns != 'regiao'], X_test['regiao']]

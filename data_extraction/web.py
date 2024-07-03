@@ -1,6 +1,7 @@
 import time
 import datetime
 import pandas as pd
+import psycopg2
 from bs4 import BeautifulSoup
 
 from selenium import webdriver
@@ -88,18 +89,19 @@ while(count <= max_pag and url != None and dif_date >= 0):
 
         # print(f'CONTEUDO DA PAGINA HTM: {soup} \n\n')
 
+        just_elements = soup.find_all('section')
+
         elements = soup.find_all('section', attrs={
             'data-ds-component': True,
             'data-ds-component': 'DS-AdCard'
         })
-        just_elements = soup.find_all('section')
 
         print(f'\n\nA QUANTIDADE DE ELEMENTOS ENCONTRADOS NESSA PAGINA FORAM {len(just_elements)}')
         print(f'QUANTIDADE DE ELEMENTOS COM COMPONENTES ENCONTRADOS NESSA PAGINA FORAM {len(elements)}')
         # print(f'CLASSES DO ELEMENTO ENCONTRADO {just_elements[0].attrs}')
         for e in elements:
             for class_parent in [parent.get('class', []) for parent in e.parents if parent.name == 'div']:
-                if('sc-e04933d-2' in class_parent):     
+                if('sc-a40f750-2' in class_parent):     
                     #PRECO, IPTU, CONDOMINIO========================= sc-e04933d-2 fhgICW
                     div_preco = e.find('div', attrs={
                         'class':lambda x: x == 'olx-ad-card__details-price--vertical' or x == 'olx-ad-card__details-price--horizontal'
@@ -225,6 +227,7 @@ while(count <= max_pag and url != None and dif_date >= 0):
                                 first_date = data
 
                             dif_date = (date_now - date_last).days 
+                            # print('dif_date: ', dif_date)
 
                     casa = {
                         'preco': float(preco) if preco != None else None,
@@ -256,9 +259,50 @@ while(count <= max_pag and url != None and dif_date >= 0):
     
     count += 1
 
+new_df = pd.DataFrame(casas)
+
+#ADICIONANDO DADOS NO BANCO
+coon =  psycopg2.connect(host='postgres', dbname='houses_db', user='postgres', password='postgres', port=5432)
+cur = coon.cursor()
+
+cur.execute("""
+    SELECT * FROM House;
+""")
+print(len(cur.fetchall()))
+
+insert = """
+INSERT INTO House(preco, iptu, condominio, metro_quadrado, quarto, banheiro, garagem, regiao, data, vendedor, descricao) VALUES
+(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+"""
+#preco;iptu;condominio;metro_quadrado;quarto;banheiro;garagem;regiao;vendedor
+for index, row in  new_df.iterrows():
+    cur.execute(insert, row)
+
+cur.execute("""
+    SELECT * FROM House;
+""")
+print(len(cur.fetchall()))
+
+cur.execute("""
+DELETE FROM House
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT id, ROW_NUMBER() OVER(PARTITION BY preco, metro_quadrado, quarto, banheiro, garagem, regiao, vendedor ORDER BY id) AS linha
+        FROM House
+    ) subconsulta
+    WHERE linha > 1
+);            
+""")
+
+cur.execute("""
+    SELECT * FROM House;
+""")
+print(len(cur.fetchall()))
+
+#SALVANDO NO ARQUIVO CSV
 save_date(first_date)
 print('========================= ANALISE FINAL ===========================')
-new_df = pd.DataFrame(casas)
 old_df = pd.read_csv('casas.csv', sep=';')
 print(f'QUANTIDADE INICIAL DE CASAS: {old_df.shape}')
 
@@ -276,4 +320,8 @@ print(f'QUANTIDADE FINAL DE CASAS: {final_df.shape}')
 final_df.to_csv('casas.csv', sep=';', index=False)
 
 driver.close()
+
+
+
+
 

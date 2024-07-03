@@ -39,7 +39,6 @@ class Polinomal(BaseEstimator, TransformerMixin):
 
         return new_x
 
-
 def create_model(X):
 
     # Definindo as colunas categóricas
@@ -76,7 +75,7 @@ def create_model(X):
     parm = [par1, par2]
 
     scorer = make_scorer(mean_squared_error, greater_is_better=False)#make_scorer(mean_absolute_error, greater_is_better=False),
-    model = GridSearchCV(pipe, parm, scoring=scorer, cv=10, n_jobs=-1)
+    model = GridSearchCV(pipe, parm, scoring=scorer, cv=20,  n_jobs=-1)
     
     return model
 
