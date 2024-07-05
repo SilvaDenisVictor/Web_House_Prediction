@@ -14,6 +14,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, make_scorer, mean_absolute_error
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import SGDRegressor
+# from sklearn.ensemble import GradientBoostingRegressor
 
 
 class Polinomal(BaseEstimator, TransformerMixin):
@@ -72,7 +73,14 @@ def create_model(X):
         'regression': [SGDRegressor(max_iter=10000)]
     }
 
-    parm = [par1, par2]
+    # par3 = {
+    #     'regression__min_samples_split': [2,3,4,5,6],
+    #     'regression__min_samples_leaf': [1,2,3,4,5],
+    #     'regression__max_depth': [3,4,5,6],
+    #     'regression': [GradientBoostingRegressor()]
+    # }
+
+    parm = [par1, par2]#, par3
 
     scorer = make_scorer(mean_squared_error, greater_is_better=False)#make_scorer(mean_absolute_error, greater_is_better=False),
     model = GridSearchCV(pipe, parm, scoring=scorer, cv=20,  n_jobs=-1)

@@ -22,7 +22,7 @@ services:
   #   ports:
   #     - "7070:7070"
   #   volumes:
-  #     - ./data_extraction:/app
+  #     - ./data_extraction: 
   #   depends_on:
   #     # selenium:
   #     #   condition: service_healthy
@@ -31,25 +31,25 @@ services:
   #   networks:
   #     - project_net
 
-  model:
-    build: 
-      context: ./models
-      dockerfile: Dockerfile
-    deploy:
-      resources:
-        limits:
-          cpus: '3'          
-          memory: 512M 
-    ports: 
-      - "2020:2020"
-    volumes:
-      - ./data_extraction:/app/data_extraction
-      - ./pre_processing:/app/pre_processing
-    networks:
-      - project_net
-    depends_on:
-      postgres:
-        condition: service_healthy
+  # model:
+  #   build: 
+  #     context: ./models
+  #     dockerfile: Dockerfile
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '3'          
+  #         memory: 512M 
+  #   ports: 
+  #     - "2020:2020"
+  #   volumes:
+  #     - ./data_extraction:/app/data_extraction
+  #     - ./pre_processing:/app/pre_processing
+  #   networks:
+  #     - project_net
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
 
   postgres:
     image: postgres:latest
@@ -70,6 +70,91 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  postgres_airflow:
+    image: postgres:latest
+    networks:
+      - project_net
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+
+  init-airflow:
+    image: apache/airflow:latest
+    depends_on:
+      - postgres_airflow
+    networks:
+      - project_net
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+    command: >
+      bash -c "airflow db init && 
+               airflow users create --username airflow --password password --firstname John --lastname Doe --role Admin --email admin@example.com"
+    healthcheck:
+      test: ["CMD-SHELL", "airflow db check || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    depends_on:
+      init-airflow:
+        condition: service_healthy
+  
+    networks:
+      - project_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data_extraction:/opt/data_extraction
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      - AIRFLOW__CORE__FERNET_KEY=plIipb9RU3-3wJ1UNaAtqVNJrqFEks1-dGbJM34EW7U=
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_USERNAME=airflow
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_PASSWORD=password
+      - AIRFLOW_WWW_USER_USERNAME=airflow
+      - AIRFLOW_WWW_USER_PASSWORD=password
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    depends_on:
+      init-airflow:
+        condition: service_healthy
+    networks:
+      - project_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data_extraction:/opt/data_extraction
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      - AIRFLOW__CORE__FERNET_KEY=plIipb9RU3-3wJ1UNaAtqVNJrqFEks1-dGbJM34EW7U=
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_USERNAME=airflow
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_PASSWORD=password
+      - AIRFLOW_WWW_USER_USERNAME=airflow
+      - AIRFLOW_WWW_USER_PASSWORD=password
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    command: scheduler
   
 networks:
   project_net:

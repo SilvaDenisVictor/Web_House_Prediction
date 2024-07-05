@@ -320,8 +320,3 @@ print(f'QUANTIDADE FINAL DE CASAS: {final_df.shape}')
 final_df.to_csv('casas.csv', sep=';', index=False)
 
 driver.close()
-
-
-
-
-
