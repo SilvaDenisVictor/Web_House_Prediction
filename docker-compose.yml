@@ -35,16 +35,16 @@ services:
   #   build: 
   #     context: ./models
   #     dockerfile: Dockerfile
+  #   container_name: model
   #   deploy:
   #     resources:
   #       limits:
   #         cpus: '3'          
   #         memory: 512M 
-  #   ports: 
-  #     - "2020:2020"
   #   volumes:
   #     - ./data_extraction:/app/data_extraction
   #     - ./pre_processing:/app/pre_processing
+  #     - ./models:/app/models
   #   networks:
   #     - project_net
   #   depends_on:
@@ -113,6 +113,8 @@ services:
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./data_extraction:/opt/data_extraction
+      - ./models:/opt/models
+      - ./api_server:/opt/api_server
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - LOAD_EX=n
@@ -143,6 +145,8 @@ services:
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./data_extraction:/opt/data_extraction
+      - ./models:/opt/models
+      - ./api_server:/opt/api_server
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - LOAD_EX=n

@@ -87,8 +87,6 @@ while(count <= max_pag and url != None and dif_date >= 0):
 
         soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-        # print(f'CONTEUDO DA PAGINA HTM: {soup} \n\n')
-
         just_elements = soup.find_all('section')
 
         elements = soup.find_all('section', attrs={
@@ -101,7 +99,7 @@ while(count <= max_pag and url != None and dif_date >= 0):
         # print(f'CLASSES DO ELEMENTO ENCONTRADO {just_elements[0].attrs}')
         for e in elements:
             for class_parent in [parent.get('class', []) for parent in e.parents if parent.name == 'div']:
-                if('sc-a40f750-2' in class_parent):     
+                if('sc-1b37e288-2' in class_parent):     
                     #PRECO, IPTU, CONDOMINIO========================= sc-e04933d-2 fhgICW
                     div_preco = e.find('div', attrs={
                         'class':lambda x: x == 'olx-ad-card__details-price--vertical' or x == 'olx-ad-card__details-price--horizontal'
@@ -176,9 +174,8 @@ while(count <= max_pag and url != None and dif_date >= 0):
                         if 'Profissional' in text:
                             vendedor = text
                         
-                        if ' '.join(p['class']) == 'olx-text olx-text--caption olx-text--block olx-text--regular':
-                            regiao = text
-                        
+                        if 'Fortaleza' in text:
+                            regiao = text      
                         
                         if 'date' in ' '.join(p['class']):
                             data = text.split(',')

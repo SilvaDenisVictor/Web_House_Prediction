@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from keras.layers import Dense, Conv1D, MaxPooling1D, Flatten, Dropout, Normalization, Input
 from keras.optimizers import Adam, SGD
+from keras.losses import MeanAbsolutePercentageError
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential, load_model
 
@@ -19,29 +20,24 @@ def transform(X, degree):
 
     return new_x
 
-def create_model(X, degree):
-    df = X.copy()
-
-    # df['vendedor'] = df['vendedor'].astype('category').cat.codes
-    # df['regiao'] = df['regiao'].astype('category').cat.codes
-
+def create_model(dic, degree):
     from keras.models import Model, Sequential
     from keras.layers import Input, Embedding, Flatten, Dense, Concatenate
 
     #CRIANDO INPUTS
     input_regiao = Input(shape=(1,))
-    input_numerico = Input(shape=(8,))
+    input_numerico = Input(shape=(7,))
 
 
     #TRATANDO REGIAO
 
-    regiao = Embedding(input_dim=X['regiao'].unique().shape[0] + 1, output_dim=30, name='embedding_regiao')(input_regiao)
-    regiao =  Flatten()(regiao)
+    regiao = Embedding(input_dim=len(dic), output_dim=30, name='embedding_regiao')(input_regiao)
+    regiao = Flatten()(regiao)
     regiao = Model(inputs=input_regiao, outputs=regiao)
 
     #TRATANDO DADOS NUMERICOS
-    numerico = Dense(16, activation='relu')(input_numerico)
-    numerico = Dense(32, activation='relu')(numerico)
+    numerico = Dense(32, activation='relu')(input_numerico)
+    numerico = Dense(64, activation='relu')(numerico)
     numerico = Model(inputs=input_numerico, outputs=numerico)
 
     #JUNTANDO AS DUAS ENTRADAS
@@ -49,7 +45,6 @@ def create_model(X, degree):
 
     #FINAL
     final = Dense(32, activation='relu')(combined)
-    final = Dense(16, activation='relu')(final)
     final = Dense(1, activation='relu')(final)
 
     #FINAL MODEL
@@ -73,21 +68,20 @@ def create_model(X, degree):
 
 def get_train_model(deep_model, X_train, y_train, degree):
     checkpoint_callback = ModelCheckpoint(
-        filepath='best_model.keras', 
+        filepath='/app/models/best_model.keras', 
         save_best_only=True, 
         monitor='val_loss', 
         mode='min', 
         verbose=1
     )
-
     
     X_train_prep = [X_train.loc[:, X_train.columns != 'regiao'], X_train['regiao']]
 
-    print(X_train_prep[0].info())
-    print(X_train_prep[1].info(), '\n\n\n')
+    # print(X_train_prep[0].info())
+    # print(X_train_prep[1].info(), '\n\n\n')
     
     #validation_data=(X_test_prep, y_test)
-    deep_model.fit(X_train_prep, y_train, validation_split=0.08, epochs=100, batch_size=1, callbacks=[checkpoint_callback])
+    deep_model.fit(X_train_prep, y_train, validation_split=0.05, epochs=20, batch_size=1, callbacks=[checkpoint_callback])
 
 def evaluate(deep_model, X_test, y_test, degree):
     X_test_prep = [X_test.loc[:, X_test.columns != 'regiao'], X_test['regiao']]
@@ -97,4 +91,9 @@ def evaluate(deep_model, X_test, y_test, degree):
     return loss_value, metric_value
 
 def get_saved_model():
-    return load_model('best_model.keras')
+    return load_model('/app/best_model.keras')
+
+def predict(deep_model, df):
+    predicted_price = deep_model.predict([df.loc[:, df.columns != 'regiao'], df['regiao']])
+    
+    return float(predicted_price[0,0])

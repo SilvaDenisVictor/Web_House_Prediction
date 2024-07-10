@@ -9,4 +9,4 @@ RUN pip install --trusted-host pypi.python.org -r requeriments.txt
 
 COPY . /app/
 
-ENTRYPOINT [ "python", "main.py" ]
+ENTRYPOINT ["python", "main.py"]
