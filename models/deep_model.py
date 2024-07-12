@@ -3,10 +3,10 @@ import numpy as np
 
 import tensorflow as tf
 from keras.layers import Dense, Conv1D, MaxPooling1D, Flatten, Dropout, Normalization, Input
+from keras.optimizers import Adam, SGD
+from keras.losses import MeanAbsolutePercentageError
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential, load_model
-
-tf.config.threading.set_intra_op_parallelism_threads(1)
 
 def transform(X, degree):
     new_x = pd.DataFrame(X.values)
@@ -20,39 +20,80 @@ def transform(X, degree):
 
     return new_x
 
-def create_model(X, degree):
-   
-    normalizer = Normalization(axis=-1)
-    normalizer.adapt(transform(X, degree).values)
+def create_model(dic):
+    from keras.models import Model, Sequential
+    from keras.layers import Input, Embedding, Flatten, Dense, Concatenate
 
-    model = Sequential([
-        normalizer,
-        Dense(128, activation='relu'),
-        Dense(512, activation='relu'),
-        Dense(256, activation='relu'),
-         Dense(64, activation='relu'),
-        Dense(1)  # Camada de saída para regressão
-    ])
+    #CRIANDO INPUTS
+    input_regiao = Input(shape=(1,))
+    input_numerico = Input(shape=(7,))
 
-    model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_absolute_error'])
 
+    #TRATANDO REGIAO
+    regiao = Embedding(input_dim=len(dic), output_dim=20, name='embedding_regiao')(input_regiao)
+    regiao = Flatten()(regiao)
+    regiao = Model(inputs=input_regiao, outputs=regiao)
+
+    #TRATANDO DADOS NUMERICOS
+    numerico = Dense(64, activation='relu')(input_numerico)
+    numerico = Dense(128, activation='relu')(numerico)
+    numerico = Model(inputs=input_numerico, outputs=numerico)
+
+    #JUNTANDO AS DUAS ENTRADAS
+    combined = Concatenate()([numerico.output, regiao.output])
+
+    #FINAL
+    final = Dense(128, activation='relu')(combined)
+    final = Dense(32, activation='relu')(final)
+    final = Dense(1, activation='relu')(final)
+
+    #FINAL MODEL
+    model = Model(inputs=[numerico.input, regiao.input], outputs=final)
+  
+    # normalizer = Normalization(axis=-1)
+    # normalizer.adapt(transform(X, degree).values)
+
+    # model = Sequential([
+    #     normalizer,
+    #     Dense(128, activation='relu'),
+    #     Dense(512, activation='relu'),
+    #     Dense(256, activation='relu'),
+    #     Dense(64, activation='relu'),
+    #     Dense(1)  # Camada de saída para regressão
+    # ])
+    #Adam(learning_rate=0.009, beta_1=0.8, beta_2=0.991, epsilon=1e-07)
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_absolute_error', metrics=['mean_absolute_error'])
+    
     return model
 
-def get_train_model(deep_model, X_train, X_test, y_train, y_test, degree):
+def get_train_model(deep_model, X_train, y_train, epochs):
     checkpoint_callback = ModelCheckpoint(
-        filepath='models\\best_model.keras', 
+        filepath='/app/models/best_model.keras', 
         save_best_only=True, 
         monitor='val_loss', 
         mode='min', 
         verbose=1
     )
+    
+    X_train_prep = [X_train.loc[:, X_train.columns != 'regiao'], X_train['regiao']]
 
-    deep_model.fit(transform(X_train, degree), y_train, validation_data=(transform(X_test, degree), y_test), epochs=15, batch_size=1, callbacks=[checkpoint_callback])
+    # print(X_train_prep[0].info())
+    # print(X_train_prep[1].info(), '\n\n\n')
+    
+    #validation_data=(X_test_prep, y_test)
+    deep_model.fit(X_train_prep, y_train, validation_split=0.1, epochs=epochs, batch_size=1, callbacks=[checkpoint_callback])
 
-def evaluate(deep_model, X_test, y_test, degree):
-    loss_value, metric_value = deep_model.evaluate(transform(X_test, degree), y_test)
+def evaluate(deep_model, X_test, y_test):
+    X_test_prep = [X_test.loc[:, X_test.columns != 'regiao'], X_test['regiao']]
+
+    loss_value, metric_value = deep_model.evaluate(X_test_prep, y_test)
 
     return loss_value, metric_value
 
 def get_saved_model():
-    return load_model('models\\best_model.keras')
+    return load_model('/app/best_model.keras')
+
+def predict(deep_model, df):
+    predicted_price = deep_model.predict([df.loc[:, df.columns != 'regiao'], df['regiao']])
+    
+    return float(predicted_price[0,0])

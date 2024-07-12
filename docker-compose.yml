@@ -1,29 +1,168 @@
 version: '3'
 
 services:
-  selenium:
-    image: selenium/standalone-chrome:latest
-    container_name: selenium_service
-    shm_size: 2g
-    ports:
-      - "4444:4444"
-    networks:
-      - selenium_net
+  # selenium:
+  #   image: selenium/standalone-chrome:latest
+  #   container_name: selenium_service
+  #   shm_size: 2g
+  #   ports:
+  #     - "4444:4444"
+  #   networks:
+  #     - project_net
+  #   healthcheck:
+  #     test: ["CMD", "curl --fail http://selenium_service:4444/wd/hub/status || exit 1"] 
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
-  data_extraction:
-    build:
-      context: ./data_extraction
-      dockerfile: Dockerfile
+  # data_extraction:
+  #   build:
+  #     context: ./data_extraction
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "7070:7070"
+  #   volumes:
+  #     - ./data_extraction: 
+  #   depends_on:
+  #     # selenium:
+  #     #   condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - project_net
+
+  # model:
+  #   build: 
+  #     context: ./models
+  #     dockerfile: Dockerfile
+  #   container_name: model
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '3'          
+  #         memory: 512M 
+  #   volumes:
+  #     - ./data_extraction:/app/data_extraction
+  #     - ./pre_processing:/app/pre_processing
+  #     - ./models:/app/models
+  #   networks:
+  #     - project_net
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  postgres:
+    image: postgres:latest
     ports:
-      - "4040:4040"
-    volumes:
-      - ./data_extraction:/app
-    depends_on:
-      - selenium
+      - "5432:5432"
     networks:
-      - selenium_net
+      - project_net
+    environment:
+      POSTGRES_DB: houses_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./source_db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - data_house:/var/lib/postgresql/data
+      - ./data_extraction/casas.csv:/casas.csv
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres_airflow:
+    image: postgres:latest
+    networks:
+      - project_net
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+
+  init-airflow:
+    image: apache/airflow:latest
+    depends_on:
+      - postgres_airflow
+    networks:
+      - project_net
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+    command: >
+      bash -c "airflow db init && 
+               airflow users create --username airflow --password password --firstname John --lastname Doe --role Admin --email admin@example.com"
+    healthcheck:
+      test: ["CMD-SHELL", "airflow db check || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    depends_on:
+      init-airflow:
+        condition: service_healthy
+  
+    networks:
+      - project_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data_extraction:/opt/data_extraction
+      - ./models:/opt/models
+      - ./api_server:/opt/api_server
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      - AIRFLOW__CORE__FERNET_KEY=plIipb9RU3-3wJ1UNaAtqVNJrqFEks1-dGbJM34EW7U=
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_USERNAME=airflow
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_PASSWORD=password
+      - AIRFLOW_WWW_USER_USERNAME=airflow
+      - AIRFLOW_WWW_USER_PASSWORD=password
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    depends_on:
+      init-airflow:
+        condition: service_healthy
+    networks:
+      - project_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data_extraction:/opt/data_extraction
+      - ./models:/opt/models
+      - ./api_server:/opt/api_server
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      - AIRFLOW__CORE__FERNET_KEY=plIipb9RU3-3wJ1UNaAtqVNJrqFEks1-dGbJM34EW7U=
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_USERNAME=airflow
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_PASSWORD=password
+      - AIRFLOW_WWW_USER_USERNAME=airflow
+      - AIRFLOW_WWW_USER_PASSWORD=password
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    command: scheduler
   
 networks:
-  selenium_net:
+  project_net:
     driver: bridge
   
+volumes:
+  data_house:

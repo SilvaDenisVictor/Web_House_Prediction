@@ -1,46 +1,94 @@
 import pandas as pd
 import numpy as np
 import datetime
-import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.impute import KNNImputer
 
 def processing_data(df):
-    #TRATANDO ARQUIVO
-    df = df.drop(['iptu', 'descricao'], axis='columns')
-    df = df.loc[(df['metro_quadrado'] > df['metro_quadrado'].quantile(0.05)) & (df['metro_quadrado'] < df['metro_quadrado'].quantile(0.95))]
-    df = df.loc[(df['preco'] > df['preco'].quantile(0.05)) & (df['preco'] < df['preco'].quantile(0.98))]
+    #REMOVENDO COLUNAS, EMBARALHANDO LINHAS
+    df = df.drop(['id', 'iptu', 'descricao', 'data'], axis='columns')
 
+    #TROCANDO VALORES NULOS 
     df = df.fillna({
-        'condominio': 0,
         'garagem': 0,
     })
 
-    df = df.dropna() 
+    #SALVANDO DADOS NO DICIONARIO
+    df.dropna(subset=['regiao'], inplace=True)
 
-    # plt.figure()
-    # plt.boxplot(df['preco'])
-    # plt.figure()
-    # plt.boxplot(df['metro_quadrado'])
-    # plt.show()
+    dic = list(df['regiao'].unique())
+    df['regiao'] = df['regiao'].apply(lambda x: dic.index(x) if x != '' else x)
+    df.reset_index(inplace=True, drop=True)
 
-    df = pd.get_dummies(df, columns=['vendedor', 'regiao'], dtype='int')
+    #TRATANDO DATA
+    # data_inicial = datetime.datetime(2000, 1, 1)
 
-    data_inicial = datetime.datetime(2000, 1, 1)
+    # df['data'] = pd.to_datetime(df['data'], dayfirst=True)
+    # df['data'] = df['data'].apply(lambda x: (x - data_inicial).days)
 
-    df['data'] = pd.to_datetime(df['data'])
-    df['data'] = df['data'].apply(lambda x: (x - data_inicial).days)
+    #CONVERTENDO DUMIES
+    df['vendedor'] = df['vendedor'].apply(lambda x: x.strip())
 
-    df = df.astype({
-        'quarto': 'int32',
-        'banheiro': 'int32',
-        'garagem': 'int32',
+    df = pd.get_dummies(df, columns=['vendedor'], prefix=None, dtype=np.int8) 
+    df.rename(columns={'vendedor_Direto com o dono': 'com_dono', 'vendedor_Profissional': 'com_profissional'}, inplace=True)
+    
+    df = df.sample(frac=1)
+
+    #SEPARANDO DADOS COMPLETOS 
+    df_full = df.dropna()
+
+    df_full = df_full.astype({
+        'preco': 'float64',
+        'condominio': 'float64',
+        'metro_quadrado': 'float64',
+        'quarto': 'int8',
+        'banheiro': 'int8',
+        'garagem': 'int8',
+        'regiao': 'int16'
     })
 
-    print(df.corr()['preco'].sort_values(ascending=False).head(15))
+    X_f, y_f = df_full.loc[:, df_full.columns != 'preco'], df_full['preco']
 
-    lista = list(df.columns)
-    lista.remove('preco')
+    # index = np.random.choice(df_full.index, int(df_full.shape[0]*0.5))
+    # df_full = df_full.loc[:, df_full.index.remove(index)]
+    
+    df = df.loc[df.index.delete(df_full.index)]
 
-    X = df[lista]
+    #APLICANDO KNNIMPUTER E REMOVENDO DOS DATAFRAME INICIAL
+    imputer = KNNImputer(n_neighbors=50)
+    df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+    
+
+    #TROCANDO TIPOS, REMOVENDO LINHAS, 
+    df = df.dropna()
+
+    df = df.astype({
+        'preco': 'float64',
+        'condominio': 'float64',
+        'metro_quadrado': 'float64',
+        'quarto': 'int8',
+        'banheiro': 'int8',
+        'garagem': 'int8',
+        'regiao': 'int16'
+    })
+    
+    #REMOVENDO BORDAS
+    li_mq, ls_mq, li_pr, ls_pr = (0.02, 0.9900000000000001, 0.00, 0.9)# (0.02, 0.9900000000000001, 0.0, 0.9)
+    df = df.loc[(df['metro_quadrado'] > df['metro_quadrado'].quantile(li_mq)) & (df['metro_quadrado'] < df['metro_quadrado'].quantile(ls_mq))]
+    df = df.loc[(df['preco'] > df['preco'].quantile(li_pr)) & (df['preco'] < df['preco'].quantile(ls_pr))]
+
+    df_full = df_full.loc[(df_full['metro_quadrado'] > df_full['metro_quadrado'].quantile(li_mq)) & (df_full['metro_quadrado'] < df_full['metro_quadrado'].quantile(ls_mq))]
+    df_full = df_full.loc[(df_full['preco'] > df_full['preco'].quantile(li_pr)) & (df_full['preco'] < df_full['preco'].quantile(ls_pr))]
+
+    #DIVIDINDO ARQUIVO EM X E Y
+    X = df.loc[:, df.columns != 'preco']
     y = df['preco']
 
-    return X, y
+    print('data do treino:\n')
+    print(X.describe())
+    print()
+    print()
+    print('data do test:\n')
+    print(X_f.describe())
+
+    return X, y, X_f, y_f, dic
