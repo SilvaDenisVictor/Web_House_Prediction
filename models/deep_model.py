@@ -20,7 +20,7 @@ def transform(X, degree):
 
     return new_x
 
-def create_model(dic, degree):
+def create_model(dic):
     from keras.models import Model, Sequential
     from keras.layers import Input, Embedding, Flatten, Dense, Concatenate
 
@@ -30,21 +30,21 @@ def create_model(dic, degree):
 
 
     #TRATANDO REGIAO
-
-    regiao = Embedding(input_dim=len(dic), output_dim=30, name='embedding_regiao')(input_regiao)
+    regiao = Embedding(input_dim=len(dic), output_dim=20, name='embedding_regiao')(input_regiao)
     regiao = Flatten()(regiao)
     regiao = Model(inputs=input_regiao, outputs=regiao)
 
     #TRATANDO DADOS NUMERICOS
-    numerico = Dense(32, activation='relu')(input_numerico)
-    numerico = Dense(64, activation='relu')(numerico)
+    numerico = Dense(64, activation='relu')(input_numerico)
+    numerico = Dense(128, activation='relu')(numerico)
     numerico = Model(inputs=input_numerico, outputs=numerico)
 
     #JUNTANDO AS DUAS ENTRADAS
     combined = Concatenate()([numerico.output, regiao.output])
 
     #FINAL
-    final = Dense(32, activation='relu')(combined)
+    final = Dense(128, activation='relu')(combined)
+    final = Dense(32, activation='relu')(final)
     final = Dense(1, activation='relu')(final)
 
     #FINAL MODEL
@@ -62,11 +62,11 @@ def create_model(dic, degree):
     #     Dense(1)  # Camada de saída para regressão
     # ])
     #Adam(learning_rate=0.009, beta_1=0.8, beta_2=0.991, epsilon=1e-07)
-    model.compile(optimizer=Adam(), loss='mean_squared_error', metrics=['mean_absolute_error'])
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_absolute_error', metrics=['mean_absolute_error'])
     
     return model
 
-def get_train_model(deep_model, X_train, y_train, degree):
+def get_train_model(deep_model, X_train, y_train, epochs):
     checkpoint_callback = ModelCheckpoint(
         filepath='/app/models/best_model.keras', 
         save_best_only=True, 
@@ -81,9 +81,9 @@ def get_train_model(deep_model, X_train, y_train, degree):
     # print(X_train_prep[1].info(), '\n\n\n')
     
     #validation_data=(X_test_prep, y_test)
-    deep_model.fit(X_train_prep, y_train, validation_split=0.05, epochs=20, batch_size=1, callbacks=[checkpoint_callback])
+    deep_model.fit(X_train_prep, y_train, validation_split=0.1, epochs=epochs, batch_size=1, callbacks=[checkpoint_callback])
 
-def evaluate(deep_model, X_test, y_test, degree):
+def evaluate(deep_model, X_test, y_test):
     X_test_prep = [X_test.loc[:, X_test.columns != 'regiao'], X_test['regiao']]
 
     loss_value, metric_value = deep_model.evaluate(X_test_prep, y_test)

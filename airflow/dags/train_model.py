@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+import datetime
 from airflow import DAG
 from docker.types import Mount
 
@@ -26,6 +26,8 @@ with DAG(
     'train_model',
     default_args=default_args,
     description='Training the model with new data',
+    start_date= datetime.datetime(2022, 1, 1, 19, 0),
+    schedule= None,
     catchup=False
 ) as dag:
 

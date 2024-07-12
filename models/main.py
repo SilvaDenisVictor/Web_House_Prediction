@@ -43,16 +43,17 @@ def build_and_train_model():
     X_train, X_test, y_train, y_test = train_test_split(X_f, y_f, test_size=0.10, random_state = 15)
 
     #CREATING MODELS
-    degree = 1
-    deep_model = dm.create_model(dic, degree)
+    deep_model = dm.create_model(dic)
     regression_model = rm.create_model(dic)
 
     #TRAINING MODEL
-    dm.get_train_model(deep_model, X_train, y_train, degree)
+    dm.get_train_model(deep_model, X_train, y_train, 50)
+    # dm.get_train_model(deep_model, X, y, 20)
+
     rm.get_train_model(regression_model, X_train, y_train)
 
     #EVALUATING MODEL
-    mean_squared_error, mean_absolute_error_dm = dm.evaluate(deep_model, X_f, y_f, degree)
+    mean_squared_error, mean_absolute_error_dm = dm.evaluate(deep_model, X_f, y_f)
     mean_absolute_error_rm = rm.evaluate(regression_model, X_f, y_f)
 
     mean = y_f.mean()

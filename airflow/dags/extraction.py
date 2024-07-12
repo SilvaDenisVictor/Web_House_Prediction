@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+import datetime 
 from airflow import DAG
 from docker.types import Mount
 
@@ -6,6 +6,7 @@ from airflow.operators.bash import BashOperator
 
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.utils.trigger_rule import TriggerRule
+from airflow.operators.dagrun_operator import TriggerDagRunOperator
 
 default_args = {
     'owner': 'airflow',
@@ -16,10 +17,19 @@ default_args = {
 
 with DAG(
     'web_scraping',
-    default_args=default_args,
-    description='Extracting data from the site',
-    catchup=False
+    default_args= default_args,
+    description= 'Extracting data from the site',
+    start_date= datetime.datetime(2022, 1, 1, 19, 0),
+    end_date= datetime.datetime(2025, 1, 1, 0, 0),
+    schedule= "50 18 * * *",
+    catchup= False
 ) as dag:
+    
+    close_api_server = BashOperator(
+        task_id='close_api_server',
+        bash_command='docker rm -f api_server',
+        dag=dag,
+    )
 
     start_selenium = BashOperator(
         task_id = 'start_selenium',
@@ -54,6 +64,10 @@ with DAG(
         dag=dag,
     )
 
+    trigger_train_model = TriggerDagRunOperator(
+        task_id='trigger_train_model',
+        trigger_dag_id='train_model',
+    )
 
-    start_selenium >> build_image_extraction >> execute_script >> cleanup_selenium
+    close_api_server >> start_selenium >> build_image_extraction >> execute_script >> cleanup_selenium >> trigger_train_model
 

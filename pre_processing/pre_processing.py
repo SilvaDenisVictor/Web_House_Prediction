@@ -34,7 +34,7 @@ def processing_data(df):
     
     df = df.sample(frac=1)
 
-    #SEPARANDO DADOS COMPLETOS E REMOVENDO DOS DATAFRAME INICIAL
+    #SEPARANDO DADOS COMPLETOS 
     df_full = df.dropna()
 
     df_full = df_full.astype({
@@ -49,11 +49,15 @@ def processing_data(df):
 
     X_f, y_f = df_full.loc[:, df_full.columns != 'preco'], df_full['preco']
 
+    # index = np.random.choice(df_full.index, int(df_full.shape[0]*0.5))
+    # df_full = df_full.loc[:, df_full.index.remove(index)]
+    
     df = df.loc[df.index.delete(df_full.index)]
 
-    #APLICANDO KNNIMPUTER
-    imputer = KNNImputer(n_neighbors=30)
-    df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns) 
+    #APLICANDO KNNIMPUTER E REMOVENDO DOS DATAFRAME INICIAL
+    imputer = KNNImputer(n_neighbors=50)
+    df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+    
 
     #TROCANDO TIPOS, REMOVENDO LINHAS, 
     df = df.dropna()
@@ -73,16 +77,18 @@ def processing_data(df):
     df = df.loc[(df['metro_quadrado'] > df['metro_quadrado'].quantile(li_mq)) & (df['metro_quadrado'] < df['metro_quadrado'].quantile(ls_mq))]
     df = df.loc[(df['preco'] > df['preco'].quantile(li_pr)) & (df['preco'] < df['preco'].quantile(ls_pr))]
 
-    #DIVIDINDO ARQUIVO EM X E Y
+    df_full = df_full.loc[(df_full['metro_quadrado'] > df_full['metro_quadrado'].quantile(li_mq)) & (df_full['metro_quadrado'] < df_full['metro_quadrado'].quantile(ls_mq))]
+    df_full = df_full.loc[(df_full['preco'] > df_full['preco'].quantile(li_pr)) & (df_full['preco'] < df_full['preco'].quantile(ls_pr))]
 
+    #DIVIDINDO ARQUIVO EM X E Y
     X = df.loc[:, df.columns != 'preco']
     y = df['preco']
 
     print('data do treino:\n')
-    print(X.info())
+    print(X.describe())
     print()
     print()
     print('data do test:\n')
-    print(X_f.info())
+    print(X_f.describe())
 
     return X, y, X_f, y_f, dic
