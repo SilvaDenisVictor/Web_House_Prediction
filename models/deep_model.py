@@ -26,7 +26,7 @@ def create_model(dic):
 
     #CRIANDO INPUTS
     input_regiao = Input(shape=(1,))
-    input_numerico = Input(shape=(7,))
+    input_numerico = Input(shape=(6,))
 
 
     #TRATANDO REGIAO
@@ -35,15 +35,17 @@ def create_model(dic):
     regiao = Model(inputs=input_regiao, outputs=regiao)
 
     #TRATANDO DADOS NUMERICOS
-    numerico = Dense(64, activation='relu')(input_numerico)
-    numerico = Dense(128, activation='relu')(numerico)
+    numerico = Dense(64, activation='relu')(input_numerico)#64
+    numerico = Dense(128, activation='relu')(numerico)#128
     numerico = Model(inputs=input_numerico, outputs=numerico)
 
     #JUNTANDO AS DUAS ENTRADAS
     combined = Concatenate()([numerico.output, regiao.output])
 
     #FINAL
-    final = Dense(128, activation='relu')(combined)
+    final = Dense(128, activation='relu')(combined)#128
+    final = Dense(128, activation='relu')(final)#32
+    final = Dense(64, activation='relu')(final)
     final = Dense(32, activation='relu')(final)
     final = Dense(1, activation='relu')(final)
 
@@ -77,11 +79,8 @@ def get_train_model(deep_model, X_train, y_train, epochs):
     
     X_train_prep = [X_train.loc[:, X_train.columns != 'regiao'], X_train['regiao']]
 
-    # print(X_train_prep[0].info())
-    # print(X_train_prep[1].info(), '\n\n\n')
-    
-    #validation_data=(X_test_prep, y_test)
     deep_model.fit(X_train_prep, y_train, validation_split=0.1, epochs=epochs, batch_size=1, callbacks=[checkpoint_callback])
+
 
 def evaluate(deep_model, X_test, y_test):
     X_test_prep = [X_test.loc[:, X_test.columns != 'regiao'], X_test['regiao']]

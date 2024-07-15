@@ -65,18 +65,12 @@ def create_model(dic):
         'regression': [LinearRegression()]
     }
 
-    # par2 = {
-    #     'poly__degree': [1,2,3,4],
-    #     'scaler': [StandardScaler(), Normalizer()],
-    #     'regression': [SGDRegressor(max_iter=10000)]
-    # }
-
     par3 = {
         'poly__degree': [1],
         'scaler': [StandardScaler(),Normalizer()],
-        'regression__min_samples_split': [4,5,6],
+        'regression__min_samples_split': [5,6,7],
         'regression__min_samples_leaf': [5,6,7],
-        'regression__max_depth': [7,8,9],
+        'regression__max_depth': [6,7,8],
         'regression': [GradientBoostingRegressor()]
     }
 
